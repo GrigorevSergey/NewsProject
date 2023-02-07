@@ -1,3 +1,4 @@
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
 from .models import Post, Author, Category
@@ -63,11 +64,33 @@ class PostAdd(PermissionRequiredMixin, CreateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        form = self.form_class(request.POST)
-        if form.is_valid():
-            form.save()
+        post_mail = Post(  # author=Author.objects.get(user=self.request.user),
+            author=Author.objects.get(pk=request.POST['author']),
+            categoryContent=request.POST.get('categoryContent'),
+            title=request.POST.get('title'),
+            text=request.POST.get('text'))
+        post_mail.save()
 
-        return super().get(request, *args, **kwargs)
+        # получаем наш html
+        html_content = render_to_string(
+            'mail_created.html',
+            {
+                'post_mail': post_mail,
+            }
+        )
+        # в конструкторе уже знакомые нам параметры, да? Называются правда немного по-другому, но суть та же.
+        msg = EmailMultiAlternatives(
+            subject=f'Здравствуй. {self.request.user} Новая статья в твоём любимом разделе!',
+            body=post_mail.text[:50] + "...",
+            from_email='qwertyuytrewqwerghbvcds@mail.ru',
+            to=['rbt-service@yandex.ru'],
+            # отправка на емайл пользователя
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        post_mail.save()
+        post_mail.ManyToManyCategory.add(*request.POST.getlist('postCategory'))
+        return redirect('/')
 
 
 class PostUpdateView(PermissionRequiredMixin, UpdateView):
@@ -112,39 +135,3 @@ def del_subscribe(request, **kwargs):
     return redirect('/news/')
 
 
-def send_mail_for_sub(instance, send_mail_for_sub_once=None):
-    print('начало')
-    print('задача - отправка письма подписчикам при добавлении новой статьи')
-
-    sub_text = instance.text
-
-    category = Category.objects.get(pk=Post.objects.get(pk=instance.pk).category.pk)
-    print('category:', category)
-    subscribers = category.subscribers.all()
-
-    print('Адреса рассылки:')
-    for pos in subscribers:
-        print(pos.email)
-
-    print()
-    for subscriber in subscribers:
-
-        print(subscriber.email,)
-        print(subscriber)
-        print('Адресат:', subscriber.email)
-
-        html_content = render_to_string(
-            'mail.html', {'user': subscriber, 'text': sub_text[:50], 'post': instance})
-
-        sub_username = subscriber.username
-        sub_useremail = subscriber.email
-
-        print()
-        print(html_content)
-        print()
-
-        send_mail_for_sub_once.delay(sub_username, sub_useremail, html_content)
-
-    print('конец')
-
-    return redirect('/news/')
