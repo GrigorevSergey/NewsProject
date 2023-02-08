@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models import Sum, DateTimeField
+from django.db.models import Sum
 
 
 class Author(models.Model):
@@ -59,7 +61,7 @@ class Post(models.Model):
         return self.text[0:124] + '...'
 
     def __str__(self):
-        return f'{self.categoryContent,self.CATEGORY_CHOICES}'
+        return f'{self.categoryContent, self.CATEGORY_CHOICES}'
 
 
 class PostCategory(models.Model):
@@ -81,4 +83,17 @@ class Comment(models.Model):
     def dislike(self):
         self.rating -= 1
         self.save()
+
+
+class Appointment(models.Model):
+    date = models.DateField(
+        default=datetime.utcnow,
+    )
+    client_name = models.CharField(
+        max_length=200
+    )
+    message = models.TextField()
+
+    def __str__(self):
+        return f'{self.client_name}: {self.message}'
 

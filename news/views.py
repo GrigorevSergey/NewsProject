@@ -1,14 +1,17 @@
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import send_mail, EmailMultiAlternatives, mail_managers
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.template.loader import render_to_string
+from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
-from .models import Post, Author, Category
+from .models import Post, Author, Category, Appointment
 from datetime import datetime
 from .filters import PostFilter
 from .forms import PostForm
-from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 
 
 class PostList(ListView):
@@ -64,33 +67,11 @@ class PostAdd(PermissionRequiredMixin, CreateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        post_mail = Post(  # author=Author.objects.get(user=self.request.user),
-            author=Author.objects.get(pk=request.POST['author']),
-            categoryContent=request.POST.get('categoryContent'),
-            title=request.POST.get('title'),
-            text=request.POST.get('text'))
-        post_mail.save()
+        form = self.form_class(request.POST)
+        if form.is_valid():
+            form.save()
 
-        # получаем наш html
-        html_content = render_to_string(
-            'mail_created.html',
-            {
-                'post_mail': post_mail,
-            }
-        )
-        # в конструкторе уже знакомые нам параметры, да? Называются правда немного по-другому, но суть та же.
-        msg = EmailMultiAlternatives(
-            subject=f'Здравствуй. {self.request.user} Новая статья в твоём любимом разделе!',
-            body=post_mail.text[:50] + "...",
-            from_email='qwertyuytrewqwerghbvcds@mail.ru',
-            to=['rbt-service@yandex.ru'],
-            # отправка на емайл пользователя
-        )
-        msg.attach_alternative(html_content, "text/html")
-        msg.send()
-        post_mail.save()
-        post_mail.ManyToManyCategory.add(*request.POST.getlist('postCategory'))
-        return redirect('/')
+        return super().get(request, *args, **kwargs)
 
 
 class PostUpdateView(PermissionRequiredMixin, UpdateView):
@@ -120,18 +101,66 @@ class ProtectedView(TemplateView):
 
 
 @login_required
-def add_subscribe(request, *args, **kwargs):
+def add_subscribe(request, **kwargs):
     pk = request.GET.get('pk', )
     print('Пользователь', request.user, 'добавлен в подписчики категории:', Category.objects.get(pk=pk))
     Category.objects.get(pk=pk).subscribers.add(request.user)
     return redirect('/news/')
 
 
+# функция отписки от группы
 @login_required
 def del_subscribe(request, **kwargs):
     pk = request.GET.get('pk', )
     print('Пользователь', request.user, 'удален из подписчиков категории:', Category.objects.get(pk=pk))
     Category.objects.get(pk=pk).subscribers.remove(request.user)
     return redirect('/news/')
+
+
+class AppointmentView(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, 'make_appointment.html', {})
+
+    def post(self, request, *args, **kwargs):
+        appointment = Appointment(
+            date=datetime.strptime(request.POST['date'], '%Y-%m-%d'),
+            client_name=request.POST['client_name'],
+            message=request.POST['message'],
+        )
+        appointment.save()
+
+        # получаем наш html
+        html_content = render_to_string(
+            'appointment_created.html',
+            {
+                'appointment': appointment,
+            }
+        )
+
+        # в конструкторе уже знакомые нам параметры, да? Называются правда немного по-другому, но суть та же.
+        msg = EmailMultiAlternatives(
+            subject=f'{appointment.client_name} {appointment.date.strftime("%Y-%M-%d")}',
+            body=appointment.message,  # это то же, что и message
+            from_email='grigoryev0089@gmail.com',
+            to=['grigoryev0089@gmail.com'],  # это то же, что и recipients_list
+        )
+        msg.attach_alternative(html_content, "text/html")  # добавляем html
+
+        msg.send()  # отсылаем
+
+        return redirect('appointments:make_appointment')
+
+    # создаём функцию-обработчик с параметрами под регистрацию сигнала
+    @receiver(post_save, sender=Appointment)
+    def notify_managers_appointment(sender, instance, created, **kwargs):
+        if created:
+            subject = f'{instance.client_name} {instance.date.strftime("%d %m %Y")}'
+        else:
+            subject = f'Appointment changed for {instance.client_name} {instance.date.strftime("%d %m %Y")}'
+
+        mail_managers(
+            subject=subject,
+            message=instance.message,
+        )
 
 

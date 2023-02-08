@@ -36,11 +36,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'news.apps.NewsConfig',
     'accounts',
     'django.contrib.sites',
     'django.contrib.flatpages',
     'fpages',
-    'news.apps.NewsConfig',
     'django_filters',
     'sign',
     'protect',
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django_apscheduler',
 
 ]
+
 
 SITE_ID = 1
 
@@ -159,9 +160,7 @@ EMAIL_HOST_USER = 'grigoryev0089'  # ваше имя пользователя, �
 EMAIL_HOST_PASSWORD = 'RedfklF_72'  # пароль от почты
 EMAIL_USE_SSL = True  # Яндекс использует ssl, подробнее о том, что это, почитайте в дополнительных источниках, но включать его здесь обязательно
 
-SERVER_EMAIL = 'grigoryev0089@gmail.com'
-
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
-APSCHEDULER_RUN_NOW_TIMEOUT = 25  # Seconds
+APSCHEDULER_RUN_NOW_TIMEOUT = 25
