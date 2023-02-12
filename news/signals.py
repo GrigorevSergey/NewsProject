@@ -1,22 +1,40 @@
-from django.core.mail import mail_managers
-from django.db.models.signals import post_save
-from django.dispatch import receiver  # импортируем нужный декоратор
+from django.core.mail import EmailMultiAlternatives
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
+from django.template.loader import render_to_string
 
-from .models import Appointment
+from NewsPaper.NewsPaper import settings
+from NewsPaper.news.models import PostCategory
 
-# в декоратор передаётся первым аргументом сигнал, на который будет реагировать эта функция,
-# и в отправители надо передать также модель
-@receiver(post_save, sender=Appointment)
-def notify_managers_appointment(sender, instance, created, **kwargs):
-    if created:
-        subject = f'{instance.client_name} {instance.date.strftime("%d %m %Y")}'
-    else:
-        subject = f'Appointment changed for {instance.client_name} {instance.date.strftime("%d %m %Y")}'
 
-    print("Получилось!")
-    print(subject)
-
-    mail_managers(
-        subject=subject,
-        message=instance.message,
+def send_notifications(preview, pk, title, subscribers):
+    html_content = render_to_string(
+        'post_created_email.html',
+        {
+            'text': preview,
+            'link': f'{settings.SITE_URL}/news/{pk}'
+        }
     )
+
+    msg = EmailMultiAlternatives(
+        subject=title,
+        body='',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=subscribers,
+    )
+
+    msg.attach_alternative(html_content, 'text/html')
+    msg.send()
+
+
+@receiver(m2m_changed, sender=PostCategory)
+def notify_about_new_post(sender, instance, **kwargs):
+    if kwargs['action'] == 'post_add':
+        categories = instance.category.all()
+        subscribers_emails = []
+
+        for cat in categories:
+            subscribers = cat.subscribers.all()
+            subscribers_emails += [s.email for s in subscribers]
+
+        send_notifications(instance.preview(), instance.pk, instance.title, subscribers_emails)

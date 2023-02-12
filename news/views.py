@@ -1,17 +1,12 @@
-from django.core.mail import send_mail, EmailMultiAlternatives, mail_managers
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.template.loader import render_to_string
-from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, TemplateView
-from .models import Post, Author, Category, Appointment
+from .models import Post, Author, Category
 from datetime import datetime
 from .filters import PostFilter
 from .forms import PostForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, get_object_or_404, render
 
 
 class PostList(ListView):
@@ -100,67 +95,28 @@ class ProtectedView(TemplateView):
     template_name = 'protected_page.html'
 
 
+class CategorylistView(Post):
+    model = Post
+    template_name = 'news/category_list.html'
+    context_object_name = 'category_news_list'
+
+    def get_queryset(self):
+        self.category = get_object_or_404(Category, id=self.kwargs['pk'])
+        queryset = Post.objects.filter(category=self.category).order_by('-date')
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_not_subscriber'] = self.request.user not in self.category.subscribers.all()
+        context['category'] = self.category
+        return context
+
+
 @login_required
-def add_subscribe(request, **kwargs):
-    pk = request.GET.get('pk', )
-    print('Пользователь', request.user, 'добавлен в подписчики категории:', Category.objects.get(pk=pk))
-    Category.objects.get(pk=pk).subscribers.add(request.user)
-    return redirect('/news/')
+def subscribe(request, pk):
+    user = request.user
+    category = Category.objects.get(id=pk)
+    category.subscribers.add(user)
 
-
-# функция отписки от группы
-@login_required
-def del_subscribe(request, **kwargs):
-    pk = request.GET.get('pk', )
-    print('Пользователь', request.user, 'удален из подписчиков категории:', Category.objects.get(pk=pk))
-    Category.objects.get(pk=pk).subscribers.remove(request.user)
-    return redirect('/news/')
-
-
-class AppointmentView(View):
-    def get(self, request, *args, **kwargs):
-        return render(request, 'make_appointment.html', {})
-
-    def post(self, request, *args, **kwargs):
-        appointment = Appointment(
-            date=datetime.strptime(request.POST['date'], '%Y-%m-%d'),
-            client_name=request.POST['client_name'],
-            message=request.POST['message'],
-        )
-        appointment.save()
-
-        # получаем наш html
-        html_content = render_to_string(
-            'appointment_created.html',
-            {
-                'appointment': appointment,
-            }
-        )
-
-        # в конструкторе уже знакомые нам параметры, да? Называются правда немного по-другому, но суть та же.
-        msg = EmailMultiAlternatives(
-            subject=f'{appointment.client_name} {appointment.date.strftime("%Y-%M-%d")}',
-            body=appointment.message,  # это то же, что и message
-            from_email='grigoryev0089@gmail.com',
-            to=['grigoryev0089@gmail.com'],  # это то же, что и recipients_list
-        )
-        msg.attach_alternative(html_content, "text/html")  # добавляем html
-
-        msg.send()  # отсылаем
-
-        return redirect('appointments:make_appointment')
-
-    # создаём функцию-обработчик с параметрами под регистрацию сигнала
-    @receiver(post_save, sender=Appointment)
-    def notify_managers_appointment(sender, instance, created, **kwargs):
-        if created:
-            subject = f'{instance.client_name} {instance.date.strftime("%d %m %Y")}'
-        else:
-            subject = f'Appointment changed for {instance.client_name} {instance.date.strftime("%d %m %Y")}'
-
-        mail_managers(
-            subject=subject,
-            message=instance.message,
-        )
-
-
+    message = 'Вы подписались на рассылку'
+    return render(request, 'news/subscribe.html', {'category': category, 'message': message})

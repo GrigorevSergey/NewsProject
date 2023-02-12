@@ -3,12 +3,8 @@ from .models import Post
 
 
 class PostForm(ModelForm):
-    check = BooleanField(label='!!!!')  # добавляем галочку, или же true-false поле
+    check_box = BooleanField()
 
     class Meta:
         model = Post
-        fields = ['title', 'text', 'Author', 'categoryContent', 'check']
-
-
-
-
+        fields = []

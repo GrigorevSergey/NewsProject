@@ -1,23 +1,51 @@
+import datetime
 import logging
 
 from django.conf import settings
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from django.core.mail import EmailMultiAlternatives
 from django.core.management.base import BaseCommand
+from django.template.loader import render_to_string
 from django_apscheduler.jobstores import DjangoJobStore
 from django_apscheduler.models import DjangoJobExecution
+
+from NewsPaper.news.models import Post, Category
 
 logger = logging.getLogger(__name__)
 
 
-# наша задача - рассылка корреспонденции по вкусам подписчикам
-def news_sender():
-    print('hello from job')
+# наша задача по выводу текста на экран
+def my_job():
+    today = datetime.datetime.now()
+    last_week = today - datetime.timedelta(days=7)
+    post = Post.objects.filter(created_at__gte=last_week)
+    categories = set(post.values_list('category__name', flat=True))
+    subscribers = set(Category.objects.filter(name__in=categories).values_list('subscribers__email'))
+
+    html_content = render_to_string(
+        'daily_post.html',
+        {
+            'link': settings.SITE_IRL,
+            'post': post,
+        }
+    )
+
+    msg = EmailMultiAlternatives(
+        subject='Статьи за неделю',
+        body='',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=subscribers
+    )
+
+    msg.attach_alternative(html_content, 'text/html')
+    msg.send()
 
 
 # функция, которая будет удалять неактуальные задачи
 def delete_old_job_executions(max_age=604_800):
+    """This job deletes all apscheduler job executions older than `max_age` from the database."""
     DjangoJobExecution.objects.delete_old_job_executions(max_age)
 
 
@@ -30,25 +58,21 @@ class Command(BaseCommand):
 
         # добавляем работу нашему задачнику
         scheduler.add_job(
-            news_sender,
-            # отправляем письма подписчикам в понедельник в 8 утра
-            trigger=CronTrigger(
-                day_of_week="mon", hour="08", minute="00"
-            ),
+            my_job,
+            trigger=CronTrigger(day_of_week="wed", hour="20", minute="48"),
             # То же, что и интервал, но задача тригера таким образом более понятна django
-            id="news_sender",  # уникальный айди
+            id="my_job",  # уникальный айди
             max_instances=1,
             replace_existing=True,
         )
-        logger.info("Добавлена работка 'news_sender'.")
+        logger.info("Added job 'my_job'.")
 
         scheduler.add_job(
             delete_old_job_executions,
             trigger=CronTrigger(
                 day_of_week="mon", hour="00", minute="00"
             ),
-            # Каждую неделю будут удаляться старые задачи, которые либо не удалось выполнить,
-            # либо уже выполнять не надо.
+            # Каждую неделю будут удаляться старые задачи, которые либо не удалось выполнить, либо уже выполнять не надо.
             id="delete_old_job_executions",
             max_instances=1,
             replace_existing=True,
@@ -58,11 +82,9 @@ class Command(BaseCommand):
         )
 
         try:
-            logger.info("Задачник запущен")
-            print('Задачник запущен')
+            logger.info("Starting scheduler...")
             scheduler.start()
         except KeyboardInterrupt:
-            logger.info("Задачник остановлен...")
+            logger.info("Stopping scheduler...")
             scheduler.shutdown()
-            print('Задачник остановлен')
-            logger.info("Задачник остановлен успешно!")
+            logger.info("Scheduler shut down successfully!")
