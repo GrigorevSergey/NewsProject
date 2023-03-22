@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models import Sum, DateTimeField
+from django.core.cache import cache
+from django.urls import reverse
 
 
 class Author(models.Model):
@@ -57,6 +59,13 @@ class Post(models.Model):
 
     def preview(self):
         return self.text[0:124] + '...'
+
+    def get_absolute_url(self):
+        return reverse('news', args=[str(self.id)])
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        cache.delete(f'news-{self.pk}')
 
     def __str__(self):
         return f'{self.categoryContent,self.CATEGORY_CHOICES}'
