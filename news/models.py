@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.db.models import Sum, DateTimeField
 from django.core.cache import cache
 from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.utils.translation import pgettext_lazy
 
 
 class Author(models.Model):
@@ -26,7 +28,7 @@ class Author(models.Model):
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, help_text=_('category name'))
     subscribers = models.ManyToManyField(User, max_length=128, blank=True, related_name='categories')
 
     def __str__(self):
@@ -68,7 +70,7 @@ class Post(models.Model):
         cache.delete(f'news-{self.pk}')
 
     def __str__(self):
-        return f'{self.categoryContent,self.CATEGORY_CHOICES}'
+        return f'{self.categoryContent, self.CATEGORY_CHOICES}'
 
 
 class PostCategory(models.Model):
@@ -90,4 +92,3 @@ class Comment(models.Model):
     def dislike(self):
         self.rating -= 1
         self.save()
-

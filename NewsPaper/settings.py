@@ -30,20 +30,27 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'modeltranslation',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'news.apps.NewsConfig',
     'accounts',
+
     'django.contrib.sites',
     'django.contrib.flatpages',
+
     'fpages',
     'django_filters',
+
     'sign',
     'protect',
+    
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -57,6 +64,9 @@ SITE_ID = 1
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+
+    'django.middleware.locale.LocaleMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -64,6 +74,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware',
+]
+
+USE_I18N = True
+
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'locale')
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -126,7 +142,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
+
+LANGUAGES = (
+  ('ru', 'Russian'),
+  ('en-us', 'English'),
+)
 
 TIME_ZONE = 'UTC'
 
@@ -304,3 +325,6 @@ LOGGING = {
 
     }
 }
+
+
+

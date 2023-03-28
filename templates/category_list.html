@@ -1,5 +1,5 @@
 {% extends 'flatpages/default.html' %}
-
+{% load i18n %}
 {% load custom_filters %}
 {% load custom_tags %}
 {% block title %}
@@ -8,9 +8,24 @@
 {% endblock title %}
 
 {% block content %}
-    <h1>Все новости</h1>
+    <form action="{% url 'set_language' %}" method="POST"> {% csrf_token %}
+        <input type="hidden" name="next" value="{{ redirect_to }}">
+
+        <select name="language" id="">
+            {% get_available_languages as LANGUAGES %}
+            {% get_language_info_list for LANGUAGES as languages %}
+
+            {% for language in languages %}
+                <option value="{{ language.code }}" {% if language.code == LANGUAGE_CODE %} selected {% endif %}>
+                    {{ language.name_local }} - {{ language.code }}
+                </option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="set">
+    </form>
+    <h1>{% trans "All news" %}</h1>
     <h3>{% current_time '%b %d %Y' %}</h3>
-    <h6>Всего новостей - {{ news | length }}</h6>
+    <h6>{% trans "total news" %} - {{ news | length }}</h6>
     <hr>
     {% is_not_subscriber %}
     {% if category_news_list %}
@@ -19,22 +34,22 @@
         <table class="col-lg-12 text-center">
             <tr>
                 <td>
-                    <b>Название</b>
+                    <b>{% trans "Title" %}</b>
                 </td>
-                <td>Категории</td>
+                <td>{% trans "Category" %}</td>
                 <td>
-                    <b>Описание</b>
+                    <b>{% trans "Description" %}</b>
                 </td>
                 <td>
-                    <b>Дата</b>
+                    <b>{% trans "Date" %}</b>
                 </td>
             </tr>
         {% for new in category_news_list %}
             <tr>
                 <td style="text-align: left">
                      <a href="{% url 'post_detail' new.id %}">{{ new.title | Censor }}</a>
-                     <a href="{% url 'post_update' new.id %}"><u>Редактировать</u></a> <!-- добавим ссылку на редактирование товара-->
-                     <a href="{% url 'post_delete' new.id %}"><u> Удалить </u></a> <!-- добавим ссылку на удаление товара-->
+                     <a href="{% url 'post_update' new.id %}"><u>{% trans "Edit" %}</u></a> <!-- добавим ссылку на редактирование товара-->
+                     <a href="{% url 'post_delete' new.id %}"><u> {% trans "Delete" %} </u></a> <!-- добавим ссылку на удаление товара-->
                 </td>
                 <td>
                     {% for category in post.category.all %}
@@ -54,7 +69,7 @@
         <h2>Новостей нет!</h2>
     {% endif %}
 
-<a href="{% url 'post_create' %}">Добавить новый товар</a> <br>
+<a href="{% url 'post_create' %}">{% trans "Add a new product" %}</a> <br>
 
 
     <!-- Если доступна предыдущая страница, то даём ссылку на неё и самую первую страницу -->
